@@ -10,6 +10,8 @@ import org.apache.ibatis.annotations.Select;
 @Mapper
 public interface EmployeeMapper {
 
+
+
     /**
      * 根据用户名查询员工
      * @param username
@@ -34,4 +36,10 @@ public interface EmployeeMapper {
      * @return
      */
     Page<Employee> pageQuery(EmployeePageQueryDTO employeePageQueryDTO);
+    /**
+     * 启用禁用员工账号
+     * @param employee
+     * @return
+     */
+    void update(Employee employee) ;
 }
