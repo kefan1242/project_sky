@@ -135,23 +135,21 @@ public class OrderServiceImpl implements OrderService {
 
         return submitVO;
     }
-//
-//    /**
-//     * 订单支付
-//     * @param ordersPaymentDTO
-//     * @return
-//     * @throws Exception
-//     */
-//    @Override
-//    public OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO) throws Exception {
-////        当前登录用户id
-//        Long userId = BaseContext.getCurrentId();
-//        User user = userMapper.getById(String.valueOf(userId));
-//
-//        String orderNumber = ordersPaymentDTO.getOrderNumber();
-//        Orders orders = orderMapper.getByNumberAndUserId(orderNumber, userId);
-//
-////        调用微信支付接口，生成预支付交易单
+
+    /**
+     * 订单支付
+     * @param ordersPaymentDTO
+     * @return
+     * @throws Exception
+     */
+    @Override
+    public OrderPaymentVO payment(OrdersPaymentDTO ordersPaymentDTO) throws Exception {
+//        当前登录用户id
+        Long userId = BaseContext.getCurrentId();
+        User user = userMapper.getById(String.valueOf(userId));
+
+
+//        调用微信支付接口，生成预支付交易单
 //        JSONObject jsonObject = weChatPayUtil.pay(
 //                ordersPaymentDTO.getOrderNumber(),
 //                orders.getAmount(),
@@ -162,44 +160,47 @@ public class OrderServiceImpl implements OrderService {
 //        if (jsonObject.getString("code") != null && jsonObject.getString("code").equals("ORDERPAID")) {
 //            throw new OrderBusinessException("该订单已支付");
 //        }
-//
-//        OrderPaymentVO vo = jsonObject.toJavaObject(OrderPaymentVO.class);
-//        vo.setPackageStr(jsonObject.getString("package"));
-//
-//        return vo;
-//    }
-//
-//    /**
-//     * 支付成功，修改订单状态
-//     * @param outTradeNo
-//     */
-//    @Override
-//    public void paySuccess(String outTradeNo) {
-////        当前登录用户id
-//        Long userId = BaseContext.getCurrentId();
-//
-////        根据订单号查询当前用户的订单
-//        Orders orderDB = orderMapper.getByNumberAndUserId(outTradeNo, userId);
-//
-////        根据订单id更新订单的状态、支付方式、支付状态、结账时间
-//        Orders orders = Orders.builder()
-//                .id(orderDB.getId())
-//                .status(Orders.TO_BE_CONFIRMED)
-//                .payStatus(Orders.PAID)
-//                .checkoutTime(LocalDateTime.now())
-//                .build();
-//        orderMapper.update(orders);
-//
-//        HashMap map = new HashMap();
-//        map.put("type", 1);
-//        map.put("orderId", orders.getId());
-//        map.put("content", "订单号：" + outTradeNo);
-//
-////        通过WebSocket实现来电提醒，向客户端浏览器推送消息
-//        webSocketServer.sendToAllClient(JSON.toJSONString(map));
-//
-//    }
-//
+
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("code", "ORDERPAID");
+        OrderPaymentVO vo = jsonObject.toJavaObject(OrderPaymentVO.class);
+        vo.setPackageStr(jsonObject.getString("package"));
+
+        //为替代微信支付成功后的数据库订单状态更新，多定义一个方法进行修改
+        Integer OrderPaidStatus = Orders.PAID; //支付状态，已支付
+        Integer OrderStatus = Orders.TO_BE_CONFIRMED;  //订单状态，待接单
+
+        //发现没有将支付时间 check_out属性赋值，所以在这里更新
+        LocalDateTime check_out_time = LocalDateTime.now();
+
+        //获取订单号码
+        String orderNumber = ordersPaymentDTO.getOrderNumber();
+
+        log.info("调用updateStatus，用于替换微信支付更新数据库状态的问题");
+        orderMapper.updateStatus(OrderStatus, OrderPaidStatus, check_out_time, orderNumber);
+
+        return vo;
+    }
+    /**
+     * 支付成功，修改订单状态
+     *
+     * @param outTradeNo
+     */
+    public void paySuccess(String outTradeNo) {
+
+        // 根据订单号查询订单
+        Orders ordersDB = orderMapper.getByNumber(outTradeNo);
+
+        // 根据订单id更新订单的状态、支付方式、支付状态、结账时间
+        Orders orders = Orders.builder()
+                .id(ordersDB.getId())
+                .status(Orders.TO_BE_CONFIRMED)
+                .payStatus(Orders.PAID)
+                .checkoutTime(LocalDateTime.now())
+                .build();
+
+        orderMapper.update(orders);
+    }
 //    /**
 //     * 历史订单查询
 //     *
